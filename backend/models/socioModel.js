@@ -15,15 +15,28 @@ const getAllSocios = async () => {
 };
 
 // Función para obtener socio por cédula
-const getSocioByCedula = async (cedula) => {
+const getSocio = async (datosConsulta) => {
     try {
         const pool = await poolPromise;
-        const result = await pool.request()
-            // tercer parámetro es el valor que se asigna a 'cedula'
-            .input('cedula', sql.VarChar, cedula)
-            .query('SELECT nombres, cedula, fuerza, edad, grado, foto, direccion, celular FROM socios WHERE cedula = @cedula');
-        // común en desarrollo extraer el primer registro si esperamos solo uno
-        return result.recordset[0];
+        let result;
+
+        const contieneNumeros = /\d/.test(datosConsulta);
+
+        if (contieneNumeros) {
+            result = await pool.request()
+                .input('cedula', sql.VarChar, datosConsulta)
+                .query('SELECT nombres, cedula, fuerza, edad, grado, foto, direccion, celular FROM socios WHERE cedula = @cedula');
+            
+            // común en desarrollo extraer el primer registro si esperamos solo uno
+            return result.recordset.length > 0 ? result.recordset[0] : null;
+        }
+        else {
+            result = await pool.request()
+                .input('nombres', sql.VarChar, `%${datosConsulta}%`)
+                .query('SELECT nombres, cedula, fuerza, edad, grado, foto, direccion, celular FROM socios WHERE nombres LIKE @nombres');
+            return result.recordset;
+        }
+
     } catch (error) {
         console.error('Error obteniendo el socio:', error);
         throw error;
@@ -46,7 +59,7 @@ const getSocioByNumTarjeta = async (numTarjeta) => {
 
 module.exports = {
     getAllSocios,
-    getSocioByCedula,
+    getSocio,
     getSocioByNumTarjeta
 };
 

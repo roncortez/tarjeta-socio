@@ -14,10 +14,10 @@ exports.getAllSocios = async (req, res) => {
 };
 
 // Función para obtener un usuario por ID
-exports.getSocioByCedula = async (req, res) => {
-    const cedulaSocio = req.params.cedula;
+exports.getSocio = async (req, res) => {
+    const datosConsulta = req.params.datosConsulta;
     try {
-      const socio = await socioModel.getSocioByCedula(cedulaSocio);
+      const socio = await socioModel.getSocio(datosConsulta);
       if (socio) {
         res.json(socio);
       } else {

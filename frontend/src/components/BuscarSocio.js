@@ -6,13 +6,44 @@ import '../styles/buscarSocio.css';
 
 const BuscarSocio = () => {
   const [cedula, setCedula] = useState('');
+  const [nombres, setNombres] = useState('');
   const [socio, setSocio] = useState(null);
   const [error, setError] = useState(null);
   const [showCreateFicha, setShowCreateFicha] = useState(false); // Estado para mostrar el formulario de creación de ficha médica
   const [fichaMedica, setFichaMedica] = useState(null); // Estado para la ficha médica
-
-  const handleInputChange = (e) => {
+  const [socios, setSocios] = useState([]);
+  const handleCedulaChange = (e) => {
     setCedula(e.target.value);
+  };
+
+  const handleNombresChange = (e) => {
+    setNombres(e.target.value);
+  }
+
+  const handleSeleccionarSocio = async (socioSeleccionado) => {
+    setSocio(socioSeleccionado);
+    setSocios([]);
+
+    try {
+      // Aquí podrías realizar una solicitud para obtener la ficha médica del socio seleccionado
+      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/ficha/${socioSeleccionado.cedula}`);
+      const socioDetalles = response.data;
+
+      // Ahora guardas la ficha médica en el estado
+      setFichaMedica(socioDetalles);
+  } catch (error) {
+      if (error.response && error.response.status === 404) {
+          // Si no se encuentra la ficha médica, puedes preguntar si desea crear una nueva
+          const confirmCreate = window.confirm('El socio no tiene una ficha médica. ¿Desea crear una nueva?');
+          if (confirmCreate) {
+              setShowCreateFicha(true);
+          }
+      } else {
+          console.error('Error al obtener detalles del socio: ', error);
+          setError('Error al obtener detalles del socio');
+      }
+  }
+
   };
 
   const handleSubmit = async (e) => {
@@ -22,18 +53,28 @@ const BuscarSocio = () => {
     setError(null);
     setShowCreateFicha(false);
     
-    if (!cedula.trim()) {
-      setError('Por favor, ingrese un número de cédula');
+    if (!cedula.trim() && nombres === '') {
+      setError('Por favor, ingrese los nombres o el número de cédula');
       return;
     }
 
+    let datosConsulta = cedula ? `${cedula}` : `${nombres}`;
+
     try {
       // Realizamos la solicitud para obtener el socio
-      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/socios/${cedula}`);
+      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/socios/${datosConsulta}`);
       const socioData = response.data;
-      setSocio(socioData);
-      setCedula('');
 
+      if (Array.isArray (socioData)) {
+        setSocios(socioData);
+        return; //Detener la ejecución para que seleccione uno
+      }
+
+      else {
+        setSocio(socioData);
+        setNombres('');
+      }
+    
       // Ahora verificamos si tiene una ficha médica
       try {
         const fichaData = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/ficha/${cedula}`);
@@ -54,7 +95,7 @@ const BuscarSocio = () => {
 
     } catch (error) {
       if (error.response && error.response.status === 404) {
-        setError('El socio con esa cédula no existe.')
+        setError('El socio con esos datos no existe.')
       } else {
         console.error('Error al obtener el socio:', error);
         setError('No se pudo obtener la información del socio');
@@ -67,23 +108,49 @@ const BuscarSocio = () => {
   return (
     <div className='form-container'>
       <form className='form' onSubmit={handleSubmit}>
+        {/* Campo de entrada para los nombres*/}
+        <div className='form__input-container'>
+          <label>Nombres:</label>
+          <input 
+            className='form__input'
+            type='text'
+            name='nombres'
+            value={nombres}
+            onChange={handleNombresChange}
+            placeholder='Ingrese los nombres'
+            disabled={cedula !== ''}
+          />
+        </div>
         {/* Campo de entrada para la cédula */}
         <div className='form__input-container'>
+          <label>Cédula:</label>
           <input
             className='form__input'
             type='text'
-            id='cedula'
+            name='cedula'
             value={cedula}
-            onChange={handleInputChange}
+            onChange={handleCedulaChange}
+            disabled={nombres !== ''}
             placeholder="Ingrese la cédula"
             minLength={10}
             maxLength={13}
           />
-        <button className='form__button' type="submit">Consultar ficha médica</button>
+        <button className='form__button' type="submit">Consultar</button>
         </div>
       </form>
 
       {error && <p className="form__error">{error}</p>}
+
+      {socios.length > 0 && (
+        <ul>
+          {socios.map((socio, index) => (
+            <li key={index} onClick={() => {handleSeleccionarSocio(socio)}}>
+              {socio.nombres} - {socio.cedula}</li>
+          ))}
+        </ul>
+      )}
+
+
 
       {socio && showCreateFicha && (
         <CrearFichaMedica cedula={socio.cedula} setShowCreateFicha={setShowCreateFicha} socio={socio} />
